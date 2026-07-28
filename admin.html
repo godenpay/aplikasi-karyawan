@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HR Approval</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F6F5F1; --card:#FFFFFF; --ink:#1C2321; --ink-soft:#5B6360; --line:#E4E1D8;
+    --teal:#0F6959; --teal-soft:#E4F1EE; --amber:#B4700A; --amber-soft:#FBF0DE;
+    --red:#B23A34; --red-soft:#FBE9E7; --radius:20px;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; min-height:100vh; background:var(--bg); font-family:'Inter',sans-serif; color:var(--ink); display:flex; justify-content:center; padding:24px 16px 60px; }
+  .app{ width:100%; max-width:560px; }
+  h1,h2{ font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em; }
+  .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-soft); margin:0 0 6px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px; margin-bottom:16px; }
+  label{ display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  input{ width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--line); font-size:15px; font-family:'JetBrains Mono',monospace; margin-bottom:14px; background:#FBFAF7; }
+  button{ padding:10px 16px; border-radius:10px; border:none; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px; cursor:pointer; }
+  .btn-primary{ background:var(--ink); color:#fff; width:100%; padding:14px; }
+  .btn-approve{ background:var(--teal); color:#fff; }
+  .btn-reject{ background:var(--red); color:#fff; }
+  .error-msg{ background:var(--red-soft); color:var(--red); padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:14px; display:none; }
+  .request-item{ border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .request-top{ display:flex; justify-content:space-between; font-size:14px; font-weight:600; margin-bottom:4px; }
+  .request-meta{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; font-family:'JetBrains Mono',monospace;}
+  .request-reason{ font-size:13px; margin-bottom:10px; }
+  .request-actions{ display:flex; gap:8px; }
+  .request-actions button{ flex:1; }
+  .link{ font-size:12px; color:var(--teal); text-decoration:underline; }
+  .empty{ color:var(--ink-soft); font-size:13px; text-align:center; padding:20px 0; }
+  #dashboard{ display:none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="loginView" class="card">
+    <p class="eyebrow">HR Dashboard</p>
+    <h1>Login HR / Admin</h1>
+    <div id="loginError" class="error-msg"></div>
+    <label>ID Karyawan</label>
+    <input id="empId" type="text" placeholder="EMP001" />
+    <label>PIN</label>
+    <input id="pin" type="password" placeholder="••••" />
+    <button class="btn-primary" onclick="doLogin()">Masuk</button>
+  </div>
+
+  <div id="dashboard">
+    <div class="card">
+      <p class="eyebrow">Pengajuan Cuti & Izin — Menunggu</p>
+      <div id="leaveList"><div class="empty">Memuat…</div></div>
+    </div>
+    <div class="card">
+      <p class="eyebrow">Klaim Reimbursement — Menunggu</p>
+      <div id="reimburseList"><div class="empty">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = "PASTE_URL_WEB_APP_GAS_DI_SINI";
+let token = localStorage.getItem('hr_token') || null;
+
+function $(id){ return document.getElementById(id); }
+async function api(payload){
+  const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
+  return res.json();
+}
+
+async function doLogin(){
+  const employee_id = $('empId').value.trim();
+  const pin = $('pin').value.trim();
+  $('loginError').style.display = 'none';
+  const res = await api({ action:'login', employee_id, pin });
+  if(!res.ok){ $('loginError').textContent = res.error; $('loginError').style.display='block'; return; }
+  token = res.token;
+  localStorage.setItem('hr_token', token);
+  enterDashboard();
+}
+
+async function enterDashboard(){
+  const check = await api({ action:'pending_approvals', token });
+  if(!check.ok){
+    $('loginError').textContent = check.error;
+    $('loginError').style.display = 'block';
+    localStorage.removeItem('hr_token');
+    token = null;
+    return;
+  }
+  $('loginView').style.display = 'none';
+  $('dashboard').style.display = 'block';
+  renderLeaves(check.leaves);
+  renderReimbursements(check.reimbursements);
+}
+
+function renderLeaves(records){
+  const el = $('leaveList');
+  if(!records || records.length === 0){ el.innerHTML = '<div class="empty">Tidak ada pengajuan menunggu.</div>'; return; }
+  el.innerHTML = records.map(r => `
+    <div class="request-item">
+      <div class="request-top"><span>${r.employee_name} — ${r.type}</span><span>${r.days} hari</span></div>
+      <div class="request-meta">${r.start_date} s/d ${r.end_date} · diajukan ${new Date(r.requested_at).toLocaleDateString('id-ID')}</div>
+      <div class="request-reason">${r.reason || '-'} ${r.attachment_url ? `· <a class="link" href="${r.attachment_url}" target="_blank">lihat lampiran</a>` : ''}</div>
+      <div class="request-actions">
+        <button class="btn-approve" onclick="decide('leave','${r.id}','Disetujui')">Setujui</button>
+        <button class="btn-reject" onclick="decide('leave','${r.id}','Ditolak')">Tolak</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderReimbursements(records){
+  const el = $('reimburseList');
+  if(!records || records.length === 0){ el.innerHTML = '<div class="empty">Tidak ada klaim menunggu.</div>'; return; }
+  el.innerHTML = records.map(r => `
+    <div class="request-item">
+      <div class="request-top"><span>${r.employee_name} — ${r.category}</span><span>Rp${Number(r.amount).toLocaleString('id-ID')}</span></div>
+      <div class="request-meta">diajukan ${new Date(r.requested_at).toLocaleDateString('id-ID')}</div>
+      <div class="request-reason">${r.description || '-'} · <a class="link" href="${r.receipt_url}" target="_blank">lihat bukti</a></div>
+      <div class="request-actions">
+        <button class="btn-approve" onclick="decide('reimburse','${r.id}','Disetujui')">Setujui</button>
+        <button class="btn-reject" onclick="decide('reimburse','${r.id}','Ditolak')">Tolak</button>
+      </div>
+    </div>`).join('');
+}
+
+async function decide(kind, id, decision){
+  const note = decision === 'Ditolak' ? (prompt('Catatan penolakan (opsional):') || '') : '';
+  const action = kind === 'leave' ? 'review_leave' : 'review_reimbursement';
+  const res = await api({ action, token, request_id: id, decision, note });
+  if(!res.ok){ alert(res.error); return; }
+  enterDashboard();
+}
+
+if(token){ enterDashboard(); }
+</script>
+</body>
+</html>
