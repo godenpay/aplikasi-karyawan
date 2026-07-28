@@ -256,10 +256,28 @@
             <!-- 3. PAYROLL VIEW -->
             <div id="view-payroll" class="view-section hidden fade-in">
                 <div class="flex justify-between items-center mb-6">
-                    <p class="text-gray-600">Otomatis menghitung BPJS Kesehatan (1%), BPJS TK (2%), & PPh21 (est. 5%).</p>
+                    <p class="text-gray-600" id="payroll-desc">Otomatis menghitung BPJS dan PPh21.</p>
                     <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow font-medium transition" onclick="processPayroll()">
                         <i class="fa-solid fa-cogs mr-2"></i> Proses Payroll Bulan Ini
                     </button>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                    <h3 class="font-semibold text-gray-800 mb-1">Pengaturan Potongan (HRD/Admin)</h3>
+                    <p class="text-xs text-gray-500 mb-4">Ubah persentase potongan gaji. Berlaku untuk semua karyawan setelah disimpan.</p>
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">BPJS (%)</label>
+                            <input id="setting-bpjs" type="number" min="0" max="100" step="0.1" class="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">PPh21 (%)</label>
+                            <input id="setting-pph21" type="number" min="0" max="100" step="0.1" class="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                        </div>
+                        <button onclick="saveSettings()" class="bg-primary text-white px-5 py-2 rounded-lg font-medium shadow-sm hover:bg-blue-700 transition">
+                            <i class="fa-solid fa-save mr-2"></i>Simpan
+                        </button>
+                    </div>
                 </div>
 
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -269,8 +287,8 @@
                                 <tr class="text-xs uppercase text-gray-500 bg-gray-50 border-b border-gray-100">
                                     <th class="p-4">Nama</th>
                                     <th class="p-4">Gaji Pokok</th>
-                                    <th class="p-4">Pot. BPJS (3%)</th>
-                                    <th class="p-4">Pot. PPh21</th>
+                                    <th class="p-4" id="th-bpjs">Pot. BPJS</th>
+                                    <th class="p-4" id="th-pph21">Pot. PPh21</th>
                                     <th class="p-4 font-bold text-gray-800">Gaji Bersih</th>
                                     <th class="p-4 text-center">Aksi</th>
                                 </tr>
@@ -482,6 +500,7 @@
         let employees = [];
         let attendanceLogs = [];
         let leaveRequests = [];
+        let payrollSettings = { bpjsPercent: 3, pph21Percent: 5 };
         let currentGpsText = 'Lokasi belum diambil';
 
         // --- 2. CORE FUNCTIONS ---
@@ -496,6 +515,7 @@
             renderDashboard();
             renderAttendance();
             renderLeaveRequests();
+            renderSettingsForm();
             renderPayroll();
             renderDatabase();
             renderKPI();
@@ -504,10 +524,11 @@
 
         async function loadFromBackend() {
             try {
-                const [empRes, attRes, leaveRes] = await Promise.all([
+                const [empRes, attRes, leaveRes, settingsRes] = await Promise.all([
                     fetch(`${GAS_URL}?action=getEmployees`).then(r => r.json()),
                     fetch(`${GAS_URL}?action=getAttendance`).then(r => r.json()),
-                    fetch(`${GAS_URL}?action=getLeaves`).then(r => r.json())
+                    fetch(`${GAS_URL}?action=getLeaves`).then(r => r.json()),
+                    fetch(`${GAS_URL}?action=getSettings`).then(r => r.json())
                 ]);
 
                 if (empRes.status === 'success' && Array.isArray(empRes.data)) {
@@ -527,6 +548,10 @@
 
                 if (leaveRes.status === 'success' && Array.isArray(leaveRes.data)) {
                     leaveRequests = leaveRes.data.reverse(); // terbaru di atas
+                }
+
+                if (settingsRes.status === 'success' && settingsRes.data) {
+                    payrollSettings = settingsRes.data;
                 }
             } catch (err) {
                 console.error('Gagal memuat data dari backend:', err);
@@ -622,13 +647,44 @@
             `).join('');
         }
 
+        function renderSettingsForm() {
+            document.getElementById('setting-bpjs').value = payrollSettings.bpjsPercent;
+            document.getElementById('setting-pph21').value = payrollSettings.pph21Percent;
+            document.getElementById('th-bpjs').innerText = `Pot. BPJS (${payrollSettings.bpjsPercent}%)`;
+            document.getElementById('th-pph21').innerText = `Pot. PPh21 (${payrollSettings.pph21Percent}%)`;
+            document.getElementById('payroll-desc').innerText =
+                `Otomatis menghitung BPJS (${payrollSettings.bpjsPercent}%) & PPh21 (est. ${payrollSettings.pph21Percent}%).`;
+        }
+
+        async function saveSettings() {
+            const bpjsPercent = Number(document.getElementById('setting-bpjs').value);
+            const pph21Percent = Number(document.getElementById('setting-pph21').value);
+
+            if (isNaN(bpjsPercent) || isNaN(pph21Percent) || bpjsPercent < 0 || pph21Percent < 0 || bpjsPercent > 100 || pph21Percent > 100) {
+                showToast('Persentase harus angka 0-100', 'error');
+                return;
+            }
+
+            const result = await postToBackend('updateSettings', { bpjsPercent, pph21Percent });
+
+            if (GAS_URL && result.status !== 'success') {
+                showToast('Gagal menyimpan pengaturan: ' + (result.message || ''), 'error');
+                return;
+            }
+
+            payrollSettings = { bpjsPercent, pph21Percent };
+            renderSettingsForm();
+            renderPayroll();
+            showToast('Pengaturan potongan berhasil disimpan', 'success');
+        }
+
         function renderPayroll() {
             const table = document.getElementById('payroll-table');
             table.innerHTML = employees.map(emp => {
                 const gapok = emp.salary;
-                const bpjs = gapok * 0.03; // BPJS Kesehatan 1% + BPJS TK 2%
+                const bpjs = gapok * (payrollSettings.bpjsPercent / 100);
                 const pkp = gapok - bpjs;
-                const pph21 = pkp * 0.05; // estimasi PPh21 5%
+                const pph21 = pkp * (payrollSettings.pph21Percent / 100);
                 const netto = gapok - bpjs - pph21;
 
                 const formatRp = (num) => 'Rp ' + num.toLocaleString('id-ID');
