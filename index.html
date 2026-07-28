@@ -405,6 +405,43 @@
     <!-- Toast Container -->
     <div id="toast-container" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-3"></div>
 
+    <!-- Add Employee Modal -->
+    <div id="modal-employee" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-semibold text-lg">Tambah Karyawan</h3>
+                <button onclick="closeEmployeeModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="form-employee" onsubmit="submitNewEmployee(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <input id="new-emp-name" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Jabatan</label>
+                    <input id="new-emp-role" type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Gaji Pokok</label>
+                        <input id="new-emp-salary" type="number" min="0" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="new-emp-status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                            <option value="Tetap">Tetap</option>
+                            <option value="Kontrak">Kontrak</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeEmployeeModal()" class="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition">Batal</button>
+                    <button type="submit" class="bg-primary text-white px-6 py-2 rounded-lg font-medium shadow-sm hover:bg-blue-700 transition">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // --- 1. STATE & DATA ---
         // Isi dengan URL Web App Google Apps Script (Deploy > New deployment > Web app).
@@ -775,6 +812,51 @@
 
             renderAttendance();
             renderDashboard();
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('modal-employee').classList.add('hidden');
+            document.getElementById('form-employee').reset();
+        }
+
+        async function submitNewEmployee(e) {
+            e.preventDefault();
+
+            const payload = {
+                name: document.getElementById('new-emp-name').value.trim(),
+                role: document.getElementById('new-emp-role').value.trim(),
+                salary: Number(document.getElementById('new-emp-salary').value) || 0,
+                status: document.getElementById('new-emp-status').value
+            };
+
+            const result = await postToBackend('addEmployee', payload);
+
+            if (GAS_URL && result.status !== 'success') {
+                showToast('Gagal menambah karyawan: ' + (result.message || ''), 'error');
+                return;
+            }
+
+            if (GAS_URL) {
+                await loadFromBackend();
+            } else {
+                // Mode tanpa backend: tambahkan langsung ke state lokal supaya tetap bisa dicoba.
+                employees.push({
+                    id: 'LOCAL-' + Date.now(),
+                    name: payload.name,
+                    role: payload.role,
+                    salary: payload.salary,
+                    status: payload.status,
+                    kpi: 0
+                });
+            }
+
+            renderDatabase();
+            renderKPI();
+            populateSelects();
+            renderDashboard();
+
+            closeEmployeeModal();
+            showToast(`Karyawan ${payload.name} berhasil ditambahkan`, 'success');
         }
 
         function processPayroll() {
