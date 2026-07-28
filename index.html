@@ -597,7 +597,7 @@
             const table = document.getElementById('payroll-table');
             table.innerHTML = employees.map(emp => {
                 const gapok = emp.salary;
-                const bpjs = gapok * 0.01; // 1% Kes + 2% JHT
+                const bpjs = gapok * 0.02; // 1% Kes + 2% JHT
                 const pkp = gapok - bpjs;
                 const pph21 = pkp * 0.00; // simplified est
                 const netto = gapok - bpjs - pph21;
