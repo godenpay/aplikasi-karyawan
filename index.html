@@ -200,12 +200,12 @@
             <!-- 2. ABSENSI VIEW -->
             <div id="view-absensi" class="view-section hidden fade-in">
                 <div class="flex gap-4 mb-6">
-                    <button class="bg-primary text-white px-5 py-2 rounded-lg shadow font-medium" onclick="document.getElementById('modal-clockin').classList.remove('hidden')">
+                    <button class="bg-primary text-white px-5 py-2 rounded-lg shadow font-medium" onclick="openClockinModal()">
                         <i class="fa-solid fa-camera mr-2"></i> Clock In / Out
                     </button>
                 </div>
                 
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
                     <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                         <h3 class="font-semibold text-gray-800">Log Kehadiran Hari Ini</h3>
                     </div>
@@ -217,10 +217,35 @@
                                     <th class="p-4">Waktu</th>
                                     <th class="p-4">Tipe</th>
                                     <th class="p-4">Lokasi (GPS)</th>
+                                    <th class="p-4">Foto</th>
                                     <th class="p-4">Status</th>
                                 </tr>
                             </thead>
                             <tbody id="attendance-table" class="text-sm">
+                                <!-- Data will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h3 class="font-semibold text-gray-800">Pengajuan Cuti / Izin</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-xs uppercase text-gray-500 bg-gray-50 border-b border-gray-100">
+                                    <th class="p-4">Karyawan</th>
+                                    <th class="p-4">Tipe</th>
+                                    <th class="p-4">Mulai</th>
+                                    <th class="p-4">Keterangan</th>
+                                    <th class="p-4">Lampiran</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leave-table" class="text-sm">
                                 <!-- Data will be injected here -->
                             </tbody>
                         </table>
@@ -263,7 +288,7 @@
                 <div class="flex justify-between items-center mb-6">
                     <div class="relative w-64">
                         <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" placeholder="Cari karyawan..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm">
+                        <input id="employee-search" type="text" placeholder="Cari karyawan..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm" oninput="renderDatabase()">
                     </div>
                     <button class="bg-primary text-white px-4 py-2 rounded-lg shadow font-medium hover:bg-blue-700 transition" onclick="document.getElementById('modal-employee').classList.remove('hidden')">
                         <i class="fa-solid fa-plus mr-2"></i> Tambah Data
@@ -456,6 +481,8 @@
         // kalau GAS_URL belum diisi atau backend gagal dihubungi, tabel akan tampil kosong.
         let employees = [];
         let attendanceLogs = [];
+        let leaveRequests = [];
+        let currentGpsText = 'Lokasi belum diambil';
 
         // --- 2. CORE FUNCTIONS ---
 
@@ -468,23 +495,19 @@
 
             renderDashboard();
             renderAttendance();
+            renderLeaveRequests();
             renderPayroll();
             renderDatabase();
             renderKPI();
             populateSelects();
-
-            // Get mock GPS
-            setTimeout(() => {
-                const gpsText = document.getElementById('gps-status');
-                if(gpsText) gpsText.innerHTML = '<i class="fa-solid fa-location-dot mt-0.5"></i><span>Lokasi: Tangerang, Banten (-6.175, 106.63)</span>';
-            }, 1500);
         }
 
         async function loadFromBackend() {
             try {
-                const [empRes, attRes] = await Promise.all([
+                const [empRes, attRes, leaveRes] = await Promise.all([
                     fetch(`${GAS_URL}?action=getEmployees`).then(r => r.json()),
-                    fetch(`${GAS_URL}?action=getAttendance`).then(r => r.json())
+                    fetch(`${GAS_URL}?action=getAttendance`).then(r => r.json()),
+                    fetch(`${GAS_URL}?action=getLeaves`).then(r => r.json())
                 ]);
 
                 if (empRes.status === 'success' && Array.isArray(empRes.data)) {
@@ -497,8 +520,13 @@
                         time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-',
                         type: log.type,
                         location: log.location,
+                        photoUrl: log.photoUrl,
                         status: 'On Time'
                     }));
+                }
+
+                if (leaveRes.status === 'success' && Array.isArray(leaveRes.data)) {
+                    leaveRequests = leaveRes.data.reverse(); // terbaru di atas
                 }
             } catch (err) {
                 console.error('Gagal memuat data dari backend:', err);
@@ -549,7 +577,7 @@
         function renderDashboard() {
             document.getElementById('dash-total-emp').innerText = employees.length;
             document.getElementById('dash-present').innerText = attendanceLogs.length;
-            document.getElementById('dash-leave').innerText = 0;
+            document.getElementById('dash-leave').innerText = leaveRequests.filter(lv => lv.status === 'Approved').length;
             
             let totalKpi = employees.reduce((sum, emp) => sum + emp.kpi, 0);
             document.getElementById('dash-kpi').innerText = employees.length
@@ -584,6 +612,7 @@
                     <td class="p-4 text-gray-600">${log.time}</td>
                     <td class="p-4"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">${log.type}</span></td>
                     <td class="p-4 text-gray-500 text-xs">${log.location}</td>
+                    <td class="p-4">${log.photoUrl ? `<a href="${log.photoUrl}" target="_blank" class="text-primary hover:underline text-xs">Lihat</a>` : '<span class="text-gray-300 text-xs">-</span>'}</td>
                     <td class="p-4">
                         <span class="${log.status === 'Late' ? 'text-red-600 bg-red-100' : 'text-green-600 bg-green-100'} px-2 py-1 rounded text-xs font-medium">
                             ${log.status}
@@ -597,9 +626,9 @@
             const table = document.getElementById('payroll-table');
             table.innerHTML = employees.map(emp => {
                 const gapok = emp.salary;
-                const bpjs = gapok * 0.02; // 1% Kes + 2% JHT
+                const bpjs = gapok * 0.03; // BPJS Kesehatan 1% + BPJS TK 2%
                 const pkp = gapok - bpjs;
-                const pph21 = pkp * 0.00; // simplified est
+                const pph21 = pkp * 0.05; // estimasi PPh21 5%
                 const netto = gapok - bpjs - pph21;
 
                 const formatRp = (num) => 'Rp ' + num.toLocaleString('id-ID');
@@ -623,7 +652,22 @@
 
         function renderDatabase() {
             const grid = document.getElementById('employee-grid');
-            grid.innerHTML = employees.map(emp => `
+            const searchInput = document.getElementById('employee-search');
+            const keyword = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+            const filtered = keyword
+                ? employees.filter(emp =>
+                    emp.name.toLowerCase().includes(keyword) ||
+                    emp.role.toLowerCase().includes(keyword) ||
+                    String(emp.id).toLowerCase().includes(keyword))
+                : employees;
+
+            if (!filtered.length) {
+                grid.innerHTML = `<p class="text-gray-400 text-sm col-span-full text-center py-8">${keyword ? 'Tidak ada karyawan yang cocok.' : 'Belum ada data karyawan.'}</p>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(emp => `
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition group relative overflow-hidden">
                     <div class="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition">
                         <button class="text-gray-400 hover:text-primary"><i class="fa-solid fa-pen"></i></button>
@@ -789,7 +833,7 @@
             const result = await postToBackend('clockIn', {
                 name: user,
                 type: 'Clock ' + type,
-                location: 'Tangerang, Banten',
+                location: currentGpsText,
                 photoData: capturedPhotoBase64
             });
 
@@ -802,7 +846,7 @@
                 name: user,
                 time: timeString,
                 type: 'Clock ' + type,
-                location: 'Tangerang, Banten',
+                location: currentGpsText,
                 status: status
             });
 
@@ -857,6 +901,87 @@
 
             closeEmployeeModal();
             showToast(`Karyawan ${payload.name} berhasil ditambahkan`, 'success');
+        }
+
+        function openClockinModal() {
+            document.getElementById('modal-clockin').classList.remove('hidden');
+
+            const gpsText = document.getElementById('gps-status');
+            currentGpsText = 'Mengambil lokasi...';
+            gpsText.innerHTML = '<i class="fa-solid fa-location-dot mt-0.5"></i><span>Mengambil lokasi saat ini...</span>';
+
+            if (!navigator.geolocation) {
+                currentGpsText = 'GPS tidak didukung browser ini';
+                gpsText.innerHTML = `<i class="fa-solid fa-triangle-exclamation mt-0.5"></i><span>${currentGpsText}</span>`;
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude.toFixed(5);
+                    const lng = pos.coords.longitude.toFixed(5);
+                    currentGpsText = `Lat: ${lat}, Long: ${lng}`;
+                    gpsText.innerHTML = `<i class="fa-solid fa-location-dot mt-0.5"></i><span>Lokasi: ${currentGpsText}</span>`;
+                },
+                (err) => {
+                    currentGpsText = 'Lokasi ditolak/gagal diambil';
+                    gpsText.innerHTML = `<i class="fa-solid fa-triangle-exclamation mt-0.5"></i><span>${currentGpsText} (${err.message})</span>`;
+                }
+            );
+        }
+
+        function renderLeaveRequests() {
+            const table = document.getElementById('leave-table');
+            if (!table) return;
+
+            if (!leaveRequests.length) {
+                table.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400 text-sm">Belum ada pengajuan cuti</td></tr>`;
+                return;
+            }
+
+            table.innerHTML = leaveRequests.map(lv => {
+                const statusColor = lv.status === 'Approved' ? 'text-green-600 bg-green-100'
+                    : lv.status === 'Rejected' ? 'text-red-600 bg-red-100'
+                    : 'text-yellow-600 bg-yellow-100';
+
+                const attachment = lv.attachmentUrl
+                    ? `<a href="${lv.attachmentUrl}" target="_blank" class="text-primary hover:underline text-xs">Lihat</a>`
+                    : '<span class="text-gray-300 text-xs">-</span>';
+
+                const actions = lv.status === 'Pending'
+                    ? `<div class="flex gap-2 justify-center">
+                        <button onclick="updateLeave(${lv.row}, 'Approved')" class="text-green-600 hover:text-green-800" title="Setujui"><i class="fa-solid fa-check-circle"></i></button>
+                        <button onclick="updateLeave(${lv.row}, 'Rejected')" class="text-red-600 hover:text-red-800" title="Tolak"><i class="fa-solid fa-times-circle"></i></button>
+                       </div>`
+                    : '<span class="text-gray-300 text-xs">-</span>';
+
+                return `
+                <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+                    <td class="p-4 font-medium">${lv.name}</td>
+                    <td class="p-4">${lv.type}</td>
+                    <td class="p-4 text-gray-600">${lv.startDate}</td>
+                    <td class="p-4 text-gray-500 text-xs max-w-xs truncate" title="${lv.reason}">${lv.reason}</td>
+                    <td class="p-4">${attachment}</td>
+                    <td class="p-4"><span class="${statusColor} px-2 py-1 rounded text-xs font-medium">${lv.status}</span></td>
+                    <td class="p-4 text-center">${actions}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function updateLeave(row, status) {
+            const result = await postToBackend('updateLeaveStatus', { row, status });
+
+            if (GAS_URL && result.status !== 'success') {
+                showToast('Gagal memperbarui status cuti: ' + (result.message || ''), 'error');
+                return;
+            }
+
+            const item = leaveRequests.find(lv => lv.row === row);
+            if (item) item.status = status;
+
+            renderLeaveRequests();
+            renderDashboard();
+            showToast(`Pengajuan cuti ${status === 'Approved' ? 'disetujui' : 'ditolak'}`, 'success');
         }
 
         function processPayroll() {
