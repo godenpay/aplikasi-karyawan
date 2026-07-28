@@ -314,7 +314,7 @@
                                 <div class="grid grid-cols-2 gap-4 mb-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Pengajuan</label>
-                                        <select class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required>
+                                        <select id="leave-type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required>
                                             <option value="Cuti Tahunan">Cuti Tahunan</option>
                                             <option value="Sakit">Sakit (dengan Surat Dokter)</option>
                                             <option value="Izin Khusus">Izin Keperluan Khusus</option>
@@ -322,12 +322,23 @@
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
-                                        <input type="date" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required>
+                                        <input id="leave-startdate" type="date" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required>
                                     </div>
                                 </div>
                                 <div class="mb-4">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Alasan / Keterangan</label>
-                                    <textarea rows="3" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required></textarea>
+                                    <textarea id="leave-reason" rows="3" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" required></textarea>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Lampiran Foto (Surat Dokter, dll — opsional)</label>
+                                    <div id="leave-photo-dropzone" class="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 relative overflow-hidden group min-h-[100px]">
+                                        <img id="leave-photo-preview" class="hidden absolute inset-0 w-full h-full object-cover" />
+                                        <div id="leave-photo-placeholder" class="flex flex-col items-center">
+                                            <i class="fa-solid fa-camera text-2xl text-gray-400 mb-1 group-hover:text-primary transition-colors"></i>
+                                            <span class="text-xs text-gray-500">Ambil Foto dari Kamera HP / Unggah</span>
+                                        </div>
+                                        <input id="leave-photo-input" type="file" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleLeavePhotoCapture(event)">
+                                    </div>
                                 </div>
                                 <div class="flex justify-end">
                                     <button type="submit" class="bg-primary text-white px-6 py-2 rounded-lg font-medium shadow-sm hover:bg-blue-700 transition">Kirim Pengajuan</button>
@@ -397,7 +408,6 @@
     <script>
         // --- 1. STATE & DATA ---
         // Isi dengan URL Web App Google Apps Script (Deploy > New deployment > Web app).
-        // Kalau dibiarkan kosong, aplikasi jalan pakai data dummy di bawah (mode demo).
         const GAS_URL = "https://script.google.com/macros/s/AKfycbw9teqDvcWVQvPLY7X-QuF6os51GYJnTnAVOcpzCogIGR1cFWWyRht8dZMNxJBIyCb9Uw/exec";
 
         // HARUS sama persis dengan APP_SECRET di apps_script_api.js.
@@ -405,23 +415,17 @@
         // tujuannya hanya mencegah spam iseng/bot acak yang menemukan URL-nya.
         const APP_SECRET = "GANTI_DENGAN_TOKEN_RAHASIA_ANDA";
 
-        // Data dummy dipakai HANYA kalau GAS_URL kosong atau fetch ke backend gagal.
-        let employees = [
-            { id: 'E01', name: 'Budi Santoso', role: 'Software Engineer', salary: 8000000, kpi: 85, status: 'Tetap' },
-            { id: 'E02', name: 'Siti Aminah', role: 'Marketing Specialist', salary: 6500000, kpi: 92, status: 'Tetap' },
-            { id: 'E03', name: 'Agus Pratama', role: 'HR Staff', salary: 5500000, kpi: 78, status: 'Kontrak' },
-            { id: 'E04', name: 'Diana Fitri', role: 'Finance Manager', salary: 12000000, kpi: 88, status: 'Tetap' }
-        ];
-
-        let attendanceLogs = [
-            { name: 'Budi Santoso', time: '07:55 AM', type: 'Clock In', location: 'Lat: -6.2, Long: 106.8', status: 'On Time' },
-            { name: 'Siti Aminah', time: '08:15 AM', type: 'Clock In', location: 'Lat: -6.2, Long: 106.8', status: 'Late' }
-        ];
+        // Semua data diambil dari Google Sheets lewat Apps Script. Tidak ada data dummy —
+        // kalau GAS_URL belum diisi atau backend gagal dihubungi, tabel akan tampil kosong.
+        let employees = [];
+        let attendanceLogs = [];
 
         // --- 2. CORE FUNCTIONS ---
 
         async function initApp() {
-            if (GAS_URL) {
+            if (!GAS_URL) {
+                showToast('GAS_URL belum diisi — aplikasi tidak terhubung ke backend', 'error');
+            } else {
                 await loadFromBackend();
             }
 
@@ -446,7 +450,7 @@
                     fetch(`${GAS_URL}?action=getAttendance`).then(r => r.json())
                 ]);
 
-                if (empRes.status === 'success' && Array.isArray(empRes.data) && empRes.data.length) {
+                if (empRes.status === 'success' && Array.isArray(empRes.data)) {
                     employees = empRes.data.map(emp => ({ ...emp, kpi: emp.kpi || 0 }));
                 }
 
@@ -460,8 +464,8 @@
                     }));
                 }
             } catch (err) {
-                console.error('Gagal memuat data dari backend, memakai data dummy:', err);
-                showToast('Gagal terhubung ke server, menampilkan data demo', 'error');
+                console.error('Gagal memuat data dari backend:', err);
+                showToast('Gagal terhubung ke server', 'error');
             }
         }
 
@@ -511,7 +515,9 @@
             document.getElementById('dash-leave').innerText = 0;
             
             let totalKpi = employees.reduce((sum, emp) => sum + emp.kpi, 0);
-            document.getElementById('dash-kpi').innerText = Math.round(totalKpi / employees.length) + "%";
+            document.getElementById('dash-kpi').innerText = employees.length
+                ? Math.round(totalKpi / employees.length) + "%"
+                : "0%";
 
             // Activity feed
             const feed = document.getElementById('activity-feed');
@@ -652,44 +658,51 @@
             essSelect.dispatchEvent(new Event('change'));
         }
 
-        // --- FOTO ABSENSI ---
+        // --- FOTO (dipakai bersama untuk absensi & lampiran cuti) ---
+        // Kompres & downscale ke max 800px sebelum dikirim, supaya upload cepat
+        // dan tidak membengkak (base64 asli dari kamera HP bisa 3-5 MB).
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const maxDim = 800;
+                        let { width, height } = img;
+                        if (width > height && width > maxDim) {
+                            height = height * (maxDim / width);
+                            width = maxDim;
+                        } else if (height > maxDim) {
+                            width = width * (maxDim / height);
+                            height = maxDim;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
         let capturedPhotoBase64 = null;
 
-        function handlePhotoCapture(event) {
+        async function handlePhotoCapture(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    // Kompres & downscale ke max 800px sebelum dikirim, supaya upload cepat
-                    // dan tidak membengkak (base64 asli dari kamera HP bisa 3-5 MB).
-                    const canvas = document.createElement('canvas');
-                    const maxDim = 800;
-                    let { width, height } = img;
-                    if (width > height && width > maxDim) {
-                        height = height * (maxDim / width);
-                        width = maxDim;
-                    } else if (height > maxDim) {
-                        width = width * (maxDim / height);
-                        height = maxDim;
-                    }
-                    canvas.width = width;
-                    canvas.height = height;
-                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            capturedPhotoBase64 = await compressImage(file);
 
-                    capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
-
-                    const preview = document.getElementById('clockin-photo-preview');
-                    preview.src = capturedPhotoBase64;
-                    preview.classList.remove('hidden');
-                    document.getElementById('clockin-photo-placeholder').classList.add('hidden');
-                    document.getElementById('photo-error').classList.add('hidden');
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            const preview = document.getElementById('clockin-photo-preview');
+            preview.src = capturedPhotoBase64;
+            preview.classList.remove('hidden');
+            document.getElementById('clockin-photo-placeholder').classList.add('hidden');
+            document.getElementById('photo-error').classList.add('hidden');
         }
 
         function resetPhotoCapture() {
@@ -700,6 +713,29 @@
             document.getElementById('clockin-photo-placeholder').classList.remove('hidden');
             document.getElementById('clockin-photo-input').value = '';
             document.getElementById('photo-error').classList.add('hidden');
+        }
+
+        let capturedLeavePhotoBase64 = null;
+
+        async function handleLeavePhotoCapture(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            capturedLeavePhotoBase64 = await compressImage(file);
+
+            const preview = document.getElementById('leave-photo-preview');
+            preview.src = capturedLeavePhotoBase64;
+            preview.classList.remove('hidden');
+            document.getElementById('leave-photo-placeholder').classList.add('hidden');
+        }
+
+        function resetLeavePhotoCapture() {
+            capturedLeavePhotoBase64 = null;
+            const preview = document.getElementById('leave-photo-preview');
+            preview.src = '';
+            preview.classList.add('hidden');
+            document.getElementById('leave-photo-placeholder').classList.remove('hidden');
+            document.getElementById('leave-photo-input').value = '';
         }
 
         async function submitAttendance(type) {
@@ -748,10 +784,29 @@
             }, 1000);
         }
 
-        function submitLeave(e) {
+        async function submitLeave(e) {
             e.preventDefault();
+
+            const type = document.getElementById('leave-type').value;
+            const startDate = document.getElementById('leave-startdate').value;
+            const reason = document.getElementById('leave-reason').value;
+
+            const result = await postToBackend('submitLeave', {
+                name: document.getElementById('ess-user-select').value,
+                type: type,
+                startDate: startDate,
+                reason: reason,
+                photoData: capturedLeavePhotoBase64 || ''
+            });
+
+            if (GAS_URL && result.status !== 'success') {
+                showToast('Gagal mengirim pengajuan: ' + (result.message || ''), 'error');
+                return;
+            }
+
             showToast('Pengajuan cuti berhasil dikirim ke atasan', 'success');
             e.target.reset();
+            resetLeavePhotoCapture();
         }
 
         function downloadSlip() {
