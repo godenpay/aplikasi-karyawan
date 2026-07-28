@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Absensi — Check In / Check Out</title>
+<title>Portal Karyawan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -31,7 +31,7 @@
     color:var(--ink);
     display:flex;
     justify-content:center;
-    padding: 24px 16px 60px;
+    padding: 24px 16px 100px;
   }
   .app{ width:100%; max-width:420px; }
   h1,h2{ font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em; }
@@ -51,21 +51,23 @@
     margin-bottom:16px;
     box-shadow: 0 1px 2px rgba(28,35,33,0.04);
   }
-  /* ---- Login ---- */
   #loginView h1{ font-size:26px; margin-bottom:4px; }
   #loginView p{ color:var(--ink-soft); font-size:14px; margin:0 0 24px; }
   label{ display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--ink); }
-  input{
+  input, select, textarea{
     width:100%;
     padding:13px 14px;
     border-radius:12px;
     border:1px solid var(--line);
-    font-size:16px;
-    font-family:'JetBrains Mono',monospace;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
     margin-bottom:16px;
     background:#FBFAF7;
   }
-  input:focus{ outline:2px solid var(--teal); outline-offset:1px; }
+  input[type=password], input[type=text]#empId, input[type=text]#pin{ font-family:'JetBrains Mono',monospace; }
+  textarea{ resize:vertical; min-height:70px; }
+  input:focus, select:focus, textarea:focus{ outline:2px solid var(--teal); outline-offset:1px; }
+  input[type=file]{ font-size:13px; padding:10px; }
   button{
     width:100%;
     padding:15px;
@@ -83,8 +85,8 @@
   .btn-teal{ background:var(--teal); color:#fff; }
   .btn-outline{ background:transparent; color:var(--ink); border:1px solid var(--line); }
   .error-msg{ background:var(--red-soft); color:var(--red); padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:16px; display:none; }
+  .success-msg{ background:var(--teal-soft); color:var(--teal); padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:16px; display:none; }
 
-  /* ---- Main ---- */
   #mainView{ display:none; }
   .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
   .who{ font-size:14px; color:var(--ink-soft); }
@@ -92,119 +94,206 @@
   .logout{ font-size:12px; color:var(--ink-soft); background:none; border:none; width:auto; padding:4px; text-decoration:underline; }
 
   .clock-card{ text-align:center; padding:28px 20px; }
-  .clock{
-    font-family:'JetBrains Mono',monospace;
-    font-size:44px;
-    font-weight:600;
-    letter-spacing:0.02em;
-    line-height:1;
-  }
+  .clock{ font-family:'JetBrains Mono',monospace; font-size:44px; font-weight:600; letter-spacing:0.02em; line-height:1; }
   .date-label{ font-size:13px; color:var(--ink-soft); margin-top:8px; }
-
-  .status-pill{
-    display:inline-flex; align-items:center; gap:6px;
-    font-size:12px; font-weight:600; padding:6px 12px; border-radius:999px;
-    margin-top:14px;
-  }
+  .status-pill{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:6px 12px; border-radius:999px; margin-top:14px; }
   .pill-neutral{ background:#EFEDE5; color:var(--ink-soft); }
   .pill-ontime{ background:var(--teal-soft); color:var(--teal); }
   .pill-late{ background:var(--amber-soft); color:var(--amber); }
 
-  .cam-wrap{
-    position:relative;
-    width:100%;
-    aspect-ratio: 4/3;
-    background:#111;
-    border-radius:16px;
-    overflow:hidden;
-    margin-bottom:16px;
-  }
+  .cam-wrap{ position:relative; width:100%; aspect-ratio: 4/3; background:#111; border-radius:16px; overflow:hidden; margin-bottom:16px; }
   video, canvas, .cam-preview{ width:100%; height:100%; object-fit:cover; display:block; }
   canvas{ display:none; }
-  .cam-hint{
-    position:absolute; bottom:10px; left:0; right:0; text-align:center;
-    font-size:11px; color:#fff; opacity:0.85; font-family:'JetBrains Mono',monospace;
-  }
-  .gps-row{
-    display:flex; align-items:center; gap:8px;
-    font-size:12px; color:var(--ink-soft); margin-bottom:16px;
-    font-family:'JetBrains Mono',monospace;
-  }
+  .cam-hint{ position:absolute; bottom:10px; left:0; right:0; text-align:center; font-size:11px; color:#fff; opacity:0.85; font-family:'JetBrains Mono',monospace; }
+  .gps-row{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft); margin-bottom:16px; font-family:'JetBrains Mono',monospace; }
   .dot{ width:7px; height:7px; border-radius:50%; background:var(--ink-soft); flex-shrink:0; }
   .dot.ok{ background:var(--teal); }
   .dot.pending{ background:var(--amber); animation:pulse 1.2s infinite; }
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
-  .history-item{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:11px 0; border-bottom:1px solid var(--line); font-size:13px;
-  }
+  .history-item{ display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid var(--line); font-size:13px; gap:10px; }
   .history-item:last-child{ border-bottom:none; }
-  .history-date{ font-family:'JetBrains Mono',monospace; color:var(--ink-soft); }
+  .history-date{ font-family:'JetBrains Mono',monospace; color:var(--ink-soft); font-size:12px; }
   .history-times{ text-align:right; }
-  .badge{ font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; margin-left:6px;}
-  .badge-ontime{ background:var(--teal-soft); color:var(--teal); }
-  .badge-late{ background:var(--amber-soft); color:var(--amber); }
-
+  .badge{ font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; margin-left:6px; white-space:nowrap;}
+  .badge-ontime, .badge-approved{ background:var(--teal-soft); color:var(--teal); }
+  .badge-late, .badge-pending{ background:var(--amber-soft); color:var(--amber); }
+  .badge-rejected{ background:var(--red-soft); color:var(--red); }
   .empty{ color:var(--ink-soft); font-size:13px; text-align:center; padding:12px 0; }
+
+  .balance-row{ display:flex; gap:12px; }
+  .balance-box{ flex:1; text-align:center; padding:14px 8px; border-radius:14px; background:#FBFAF7; border:1px solid var(--line); }
+  .balance-num{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:600; }
+  .balance-label{ font-size:11px; color:var(--ink-soft); margin-top:4px; }
+
+  .profile-row{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .profile-row:last-child{ border-bottom:none; }
+  .profile-row span:first-child{ color:var(--ink-soft); }
+  .profile-row span:last-child{ font-weight:600; text-align:right; }
+
+  .tabbar{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--card); border-top:1px solid var(--line);
+    display:flex; justify-content:space-around; padding:10px 8px calc(10px + env(safe-area-inset-bottom));
+    max-width:420px; margin:0 auto;
+  }
+  .tab-btn{
+    background:none; border:none; width:auto; padding:6px 10px;
+    font-family:'Inter',sans-serif; font-size:11px; font-weight:600;
+    color:var(--ink-soft); display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  .tab-btn.active{ color:var(--teal); }
+  .tab-icon{ width:20px; height:20px; }
+  .view{ display:none; }
+  .view.active{ display:block; }
 </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- LOGIN -->
   <div id="loginView" class="card">
-    <p class="eyebrow">Absensi Karyawan</p>
+    <p class="eyebrow">Portal Karyawan</p>
     <h1>Selamat datang</h1>
     <p>Masuk pakai ID karyawan dan PIN kamu.</p>
     <div id="loginError" class="error-msg"></div>
     <label for="empId">ID Karyawan</label>
-    <input id="empId" type="text" inputmode="text" placeholder="EMP001" autocomplete="off" />
+    <input id="empId" type="text" placeholder="EMP001" autocomplete="off" />
     <label for="pin">PIN</label>
-    <input id="pin" type="password" inputmode="numeric" placeholder="••••" autocomplete="off" />
+    <input id="pin" type="password" placeholder="••••" autocomplete="off" />
     <button class="btn-primary" onclick="doLogin()" id="loginBtn">Masuk</button>
   </div>
 
-  <!-- MAIN -->
   <div id="mainView">
     <div class="topbar">
       <div class="who">Halo, <b id="empName">—</b></div>
       <button class="logout" onclick="logout()">Keluar</button>
     </div>
 
-    <div class="card clock-card">
-      <div class="clock" id="clock">00:00:00</div>
-      <div class="date-label" id="dateLabel">—</div>
-      <div id="statusPill" class="status-pill pill-neutral">Belum check-in</div>
+    <div id="viewAbsensi" class="view active">
+      <div class="card clock-card">
+        <div class="clock" id="clock">00:00:00</div>
+        <div class="date-label" id="dateLabel">—</div>
+        <div id="statusPill" class="status-pill pill-neutral">Belum check-in</div>
+      </div>
+      <div class="card">
+        <p class="eyebrow" id="camLabel">Ambil selfie untuk check-in</p>
+        <div class="cam-wrap">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="canvas"></canvas>
+          <div class="cam-hint" id="camHint">Mengaktifkan kamera…</div>
+        </div>
+        <div class="gps-row">
+          <div class="dot pending" id="gpsDot"></div>
+          <span id="gpsLabel">Mencari lokasi GPS…</span>
+        </div>
+        <div id="actionError" class="error-msg"></div>
+        <button class="btn-teal" id="actionBtn" onclick="handleAction()" disabled>Ambil Foto & Check In</button>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Riwayat 14 Hari Terakhir</p>
+        <div id="historyList"><div class="empty">Memuat riwayat…</div></div>
+      </div>
     </div>
 
-    <div class="card">
-      <p class="eyebrow" id="camLabel">Ambil selfie untuk check-in</p>
-      <div class="cam-wrap">
-        <video id="video" autoplay playsinline muted></video>
-        <img id="camPreview" class="cam-preview" style="display:none" />
-        <canvas id="canvas"></canvas>
-        <div class="cam-hint" id="camHint">Mengaktifkan kamera…</div>
+    <div id="viewCuti" class="view">
+      <div class="card">
+        <p class="eyebrow">Sisa Cuti Tahunan</p>
+        <div class="balance-row">
+          <div class="balance-box"><div class="balance-num" id="leaveQuota">—</div><div class="balance-label">Jatah/tahun</div></div>
+          <div class="balance-box"><div class="balance-num" id="leaveUsed">—</div><div class="balance-label">Terpakai</div></div>
+          <div class="balance-box"><div class="balance-num" id="leaveRemaining">—</div><div class="balance-label">Sisa</div></div>
+        </div>
       </div>
-      <div class="gps-row">
-        <div class="dot pending" id="gpsDot"></div>
-        <span id="gpsLabel">Mencari lokasi GPS…</span>
+      <div class="card">
+        <p class="eyebrow">Ajukan Cuti / Izin</p>
+        <div id="leaveError" class="error-msg"></div>
+        <div id="leaveSuccess" class="success-msg"></div>
+        <label for="leaveType">Jenis</label>
+        <select id="leaveType">
+          <option value="Cuti Tahunan">Cuti Tahunan</option>
+          <option value="Sakit">Sakit</option>
+          <option value="Izin">Izin Lainnya</option>
+        </select>
+        <label for="leaveStart">Tanggal Mulai</label>
+        <input id="leaveStart" type="date" />
+        <label for="leaveEnd">Tanggal Selesai</label>
+        <input id="leaveEnd" type="date" />
+        <label for="leaveReason">Alasan</label>
+        <textarea id="leaveReason" placeholder="Contoh: acara keluarga di luar kota"></textarea>
+        <label for="leaveAttachment">Lampiran (opsional — surat dokter untuk sakit)</label>
+        <input id="leaveAttachment" type="file" accept="image/*,.pdf" />
+        <button class="btn-teal" onclick="submitLeaveRequest()" id="leaveBtn">Kirim Pengajuan</button>
       </div>
-      <div id="actionError" class="error-msg"></div>
-      <button class="btn-teal" id="actionBtn" onclick="handleAction()" disabled>Ambil Foto & Check In</button>
+      <div class="card">
+        <p class="eyebrow">Riwayat Pengajuan</p>
+        <div id="leaveHistoryList"><div class="empty">Memuat riwayat…</div></div>
+      </div>
     </div>
 
-    <div class="card">
-      <p class="eyebrow">Riwayat 14 Hari Terakhir</p>
-      <div id="historyList"><div class="empty">Memuat riwayat…</div></div>
+    <div id="viewReimburse" class="view">
+      <div class="card">
+        <p class="eyebrow">Ajukan Reimbursement</p>
+        <div id="reimburseError" class="error-msg"></div>
+        <div id="reimburseSuccess" class="success-msg"></div>
+        <label for="reimburseCategory">Kategori</label>
+        <select id="reimburseCategory">
+          <option value="Transport">Transport</option>
+          <option value="Medical">Medical</option>
+          <option value="Makan Dinas">Makan Dinas</option>
+          <option value="Lainnya">Lainnya</option>
+        </select>
+        <label for="reimburseAmount">Nominal (Rp)</label>
+        <input id="reimburseAmount" type="number" placeholder="150000" min="1" />
+        <label for="reimburseDesc">Keterangan</label>
+        <textarea id="reimburseDesc" placeholder="Contoh: taksi ke kantor klien tanggal 20 Juli"></textarea>
+        <label for="reimburseReceipt">Bukti / Struk (wajib)</label>
+        <input id="reimburseReceipt" type="file" accept="image/*,.pdf" />
+        <button class="btn-teal" onclick="submitReimbursementRequest()" id="reimburseBtn">Kirim Klaim</button>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Riwayat Klaim</p>
+        <div id="reimburseHistoryList"><div class="empty">Memuat riwayat…</div></div>
+      </div>
+    </div>
+
+    <div id="viewProfil" class="view">
+      <div class="card">
+        <p class="eyebrow">Data Karyawan</p>
+        <div class="profile-row"><span>ID Karyawan</span><span id="pEmpId">—</span></div>
+        <div class="profile-row"><span>Nama</span><span id="pName">—</span></div>
+        <div class="profile-row"><span>Email</span><span id="pEmail">—</span></div>
+        <div class="profile-row"><span>Departemen</span><span id="pDept">—</span></div>
+        <div class="profile-row"><span>Posisi</span><span id="pPosition">—</span></div>
+        <div class="profile-row"><span>Tanggal Bergabung</span><span id="pJoin">—</span></div>
+        <div class="profile-row"><span>Role</span><span id="pRole">—</span></div>
+      </div>
+      <button class="btn-outline" onclick="logout()">Keluar dari Akun</button>
+    </div>
+
+    <div class="tabbar">
+      <button class="tab-btn active" data-tab="viewAbsensi" onclick="switchTab('viewAbsensi')">
+        <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Absensi
+      </button>
+      <button class="tab-btn" data-tab="viewCuti" onclick="switchTab('viewCuti')">
+        <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+        Cuti
+      </button>
+      <button class="tab-btn" data-tab="viewReimburse" onclick="switchTab('viewReimburse')">
+        <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+        Klaim
+      </button>
+      <button class="tab-btn" data-tab="viewProfil" onclick="switchTab('viewProfil')">
+        <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+        Profil
+      </button>
     </div>
   </div>
 
 </div>
 
 <script>
-// ====== KONFIGURASI — GANTI DENGAN URL WEB APP GAS KAMU ======
-const API_URL = "https://script.google.com/macros/s/AKfycbyjcw3xOWLjeb3_exN76O9X1BTP8qRI1KCJUagreJ6RO306vGYWagsiJ3IokG2eh6iK/exec";
+const API_URL = "PASTE_URL_WEB_APP_GAS_DI_SINI";
 
 let token = localStorage.getItem('absensi_token') || null;
 let stream = null;
@@ -214,7 +303,6 @@ let currentStatus = { checked_in: false, checked_out: false };
 
 function $(id){ return document.getElementById(id); }
 
-// ---- API helper (pakai text/plain agar tidak kena CORS preflight) ----
 async function api(payload){
   const res = await fetch(API_URL, {
     method: 'POST',
@@ -224,26 +312,38 @@ async function api(payload){
   return res.json();
 }
 
-// ---- Login ----
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    if(!file){ resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function badgeClass(status){
+  if(status === 'Disetujui') return 'badge-approved';
+  if(status === 'Ditolak') return 'badge-rejected';
+  return 'badge-pending';
+}
+
 async function doLogin(){
   const employee_id = $('empId').value.trim();
   const pin = $('pin').value.trim();
   $('loginError').style.display = 'none';
-  if(!employee_id || !pin){
-    showError('loginError', 'Isi ID karyawan dan PIN.');
-    return;
-  }
+  if(!employee_id || !pin){ showMsg('loginError', 'Isi ID karyawan dan PIN.'); return; }
   $('loginBtn').disabled = true;
   $('loginBtn').textContent = 'Memproses…';
   try{
     const res = await api({ action:'login', employee_id, pin });
-    if(!res.ok){ showError('loginError', res.error); return; }
+    if(!res.ok){ showMsg('loginError', res.error); return; }
     token = res.token;
     localStorage.setItem('absensi_token', token);
     localStorage.setItem('absensi_name', res.name);
     enterMainView();
   }catch(e){
-    showError('loginError', 'Gagal terhubung ke server.');
+    showMsg('loginError', 'Gagal terhubung ke server.');
   }finally{
     $('loginBtn').disabled = false;
     $('loginBtn').textContent = 'Masuk';
@@ -258,13 +358,20 @@ function logout(){
   $('loginView').style.display = 'block';
 }
 
-function showError(id, msg){
-  const el = $(id);
-  el.textContent = msg;
-  el.style.display = 'block';
+function showMsg(id, msg){ const el = $(id); el.textContent = msg; el.style.display = 'block'; }
+function hideMsg(id){ $(id).style.display = 'none'; }
+
+function switchTab(tabId){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  $(tabId).classList.add('active');
+  document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+
+  if(tabId === 'viewCuti'){ loadLeaveBalance(); loadLeaveHistory(); }
+  if(tabId === 'viewReimburse'){ loadReimburseHistory(); }
+  if(tabId === 'viewProfil'){ loadProfile(); }
 }
 
-// ---- Main view ----
 async function enterMainView(){
   $('loginView').style.display = 'none';
   $('mainView').style.display = 'block';
@@ -297,7 +404,6 @@ function updateStatusUI(){
   const pill = $('statusPill');
   const camLabel = $('camLabel');
   const actionBtn = $('actionBtn');
-
   if(!currentStatus.checked_in){
     pill.className = 'status-pill pill-neutral';
     pill.textContent = 'Belum check-in';
@@ -320,7 +426,6 @@ function updateStatusUI(){
   }
 }
 
-// ---- Camera ----
 async function startCamera(){
   if(currentStatus.checked_in && currentStatus.checked_out) return;
   try{
@@ -332,24 +437,16 @@ async function startCamera(){
     $('camHint').textContent = 'Kamera tidak dapat diakses — izinkan akses kamera di browser.';
   }
 }
-function stopCamera(){
-  if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
-}
+function stopCamera(){ if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; } }
 function capturePhoto(){
-  const video = $('video');
-  const canvas = $('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  const video = $('video'); const canvas = $('canvas');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
   capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
 }
 
-// ---- GPS ----
 function startGPS(){
-  if(!navigator.geolocation){
-    $('gpsLabel').textContent = 'Browser tidak mendukung GPS.';
-    return;
-  }
+  if(!navigator.geolocation){ $('gpsLabel').textContent = 'Browser tidak mendukung GPS.'; return; }
   navigator.geolocation.watchPosition(
     (pos) => {
       currentPosition = pos.coords;
@@ -357,71 +454,141 @@ function startGPS(){
       $('gpsLabel').textContent = 'Lokasi ditemukan (akurasi ~' + Math.round(pos.coords.accuracy) + ' m)';
       checkReady();
     },
-    (err) => {
-      $('gpsDot').className = 'dot';
-      $('gpsLabel').textContent = 'GPS gagal: ' + err.message;
-    },
+    (err) => { $('gpsDot').className = 'dot'; $('gpsLabel').textContent = 'GPS gagal: ' + err.message; },
     { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
   );
 }
-
 function checkReady(){
   const ready = !!stream && !!currentPosition && !(currentStatus.checked_in && currentStatus.checked_out);
   $('actionBtn').disabled = !ready;
 }
 
-// ---- Check-in / Check-out ----
 async function handleAction(){
   const mode = $('actionBtn').dataset.mode;
-  $('actionError').style.display = 'none';
+  hideMsg('actionError');
   capturePhoto();
-
   $('actionBtn').disabled = true;
   $('actionBtn').textContent = 'Mengirim…';
-
   try{
-    const res = await api({
-      action: mode,
-      token,
-      lat: currentPosition.latitude,
-      lng: currentPosition.longitude,
-      accuracy: currentPosition.accuracy,
-      photo: capturedPhoto
-    });
-    if(!res.ok){
-      showError('actionError', res.error);
-      $('actionBtn').disabled = false;
-      updateStatusUI();
-      return;
-    }
+    const res = await api({ action: mode, token, lat: currentPosition.latitude, lng: currentPosition.longitude, accuracy: currentPosition.accuracy, photo: capturedPhoto });
+    if(!res.ok){ showMsg('actionError', res.error); $('actionBtn').disabled = false; updateStatusUI(); return; }
     await refreshStatus();
     await loadHistory();
   }catch(e){
-    showError('actionError', 'Gagal mengirim data. Cek koneksi internet.');
+    showMsg('actionError', 'Gagal mengirim data. Cek koneksi internet.');
     $('actionBtn').disabled = false;
   }
 }
 
-// ---- History ----
 async function loadHistory(){
   const res = await api({ action:'history', token, limit:14 });
   const list = $('historyList');
-  if(!res.ok || !res.records || res.records.length === 0){
-    list.innerHTML = '<div class="empty">Belum ada riwayat absensi.</div>';
-    return;
-  }
+  if(!res.ok || !res.records || res.records.length === 0){ list.innerHTML = '<div class="empty">Belum ada riwayat absensi.</div>'; return; }
   list.innerHTML = res.records.map(r => `
     <div class="history-item">
       <span class="history-date">${r.date}</span>
-      <span class="history-times">
-        ${r.check_in_time || '—'} → ${r.check_out_time || '—'}
+      <span class="history-times">${r.check_in_time || '—'} → ${r.check_out_time || '—'}
         ${r.status ? `<span class="badge ${r.status === 'Terlambat' ? 'badge-late' : 'badge-ontime'}">${r.status}</span>` : ''}
       </span>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
-// ---- Init ----
+async function loadLeaveBalance(){
+  const res = await api({ action:'leave_balance', token });
+  if(!res.ok) return;
+  $('leaveQuota').textContent = res.quota;
+  $('leaveUsed').textContent = res.used;
+  $('leaveRemaining').textContent = res.remaining;
+}
+
+async function submitLeaveRequest(){
+  hideMsg('leaveError'); hideMsg('leaveSuccess');
+  const leave_type = $('leaveType').value;
+  const start_date = $('leaveStart').value;
+  const end_date = $('leaveEnd').value;
+  const reason = $('leaveReason').value.trim();
+  const file = $('leaveAttachment').files[0];
+
+  if(!start_date || !end_date){ showMsg('leaveError', 'Isi tanggal mulai dan selesai.'); return; }
+
+  $('leaveBtn').disabled = true;
+  $('leaveBtn').textContent = 'Mengirim…';
+  try{
+    const attachment = await fileToBase64(file);
+    const res = await api({ action:'submit_leave', token, leave_type, start_date, end_date, reason, attachment });
+    if(!res.ok){ showMsg('leaveError', res.error); return; }
+    showMsg('leaveSuccess', res.message);
+    $('leaveStart').value = ''; $('leaveEnd').value = ''; $('leaveReason').value = ''; $('leaveAttachment').value = '';
+    loadLeaveBalance(); loadLeaveHistory();
+  }catch(e){
+    showMsg('leaveError', 'Gagal mengirim pengajuan. Cek koneksi internet.');
+  }finally{
+    $('leaveBtn').disabled = false;
+    $('leaveBtn').textContent = 'Kirim Pengajuan';
+  }
+}
+
+async function loadLeaveHistory(){
+  const res = await api({ action:'my_leaves', token });
+  const list = $('leaveHistoryList');
+  if(!res.ok || !res.records || res.records.length === 0){ list.innerHTML = '<div class="empty">Belum ada pengajuan cuti/izin.</div>'; return; }
+  list.innerHTML = res.records.map(r => `
+    <div class="history-item">
+      <span class="history-date">${r.type}<br>${r.start_date} — ${r.end_date}</span>
+      <span class="history-times">${r.days} hari <span class="badge ${badgeClass(r.status)}">${r.status}</span></span>
+    </div>`).join('');
+}
+
+async function submitReimbursementRequest(){
+  hideMsg('reimburseError'); hideMsg('reimburseSuccess');
+  const category = $('reimburseCategory').value;
+  const amount = $('reimburseAmount').value;
+  const description = $('reimburseDesc').value.trim();
+  const file = $('reimburseReceipt').files[0];
+
+  if(!amount || Number(amount) <= 0){ showMsg('reimburseError', 'Isi nominal yang valid.'); return; }
+  if(!file){ showMsg('reimburseError', 'Unggah bukti/struk terlebih dahulu.'); return; }
+
+  $('reimburseBtn').disabled = true;
+  $('reimburseBtn').textContent = 'Mengirim…';
+  try{
+    const receipt = await fileToBase64(file);
+    const res = await api({ action:'submit_reimbursement', token, category, amount, description, receipt });
+    if(!res.ok){ showMsg('reimburseError', res.error); return; }
+    showMsg('reimburseSuccess', res.message);
+    $('reimburseAmount').value = ''; $('reimburseDesc').value = ''; $('reimburseReceipt').value = '';
+    loadReimburseHistory();
+  }catch(e){
+    showMsg('reimburseError', 'Gagal mengirim klaim. Cek koneksi internet.');
+  }finally{
+    $('reimburseBtn').disabled = false;
+    $('reimburseBtn').textContent = 'Kirim Klaim';
+  }
+}
+
+async function loadReimburseHistory(){
+  const res = await api({ action:'my_reimbursements', token });
+  const list = $('reimburseHistoryList');
+  if(!res.ok || !res.records || res.records.length === 0){ list.innerHTML = '<div class="empty">Belum ada klaim reimbursement.</div>'; return; }
+  list.innerHTML = res.records.map(r => `
+    <div class="history-item">
+      <span class="history-date">${r.category}<br>${new Date(r.requested_at).toLocaleDateString('id-ID')}</span>
+      <span class="history-times">Rp${Number(r.amount).toLocaleString('id-ID')} <span class="badge ${badgeClass(r.status)}">${r.status}</span></span>
+    </div>`).join('');
+}
+
+async function loadProfile(){
+  const res = await api({ action:'profile', token });
+  if(!res.ok) return;
+  $('pEmpId').textContent = res.employee_id;
+  $('pName').textContent = res.name;
+  $('pEmail').textContent = res.email;
+  $('pDept').textContent = res.department;
+  $('pPosition').textContent = res.position;
+  $('pJoin').textContent = res.join_date;
+  $('pRole').textContent = res.role;
+}
+
 if(token){ enterMainView(); }
 </script>
 </body>
